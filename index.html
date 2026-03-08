@@ -467,7 +467,18 @@ nav {
 .tracking-saved { color:var(--olive); font-size:11px; font-weight:700; margin-top:2px; }
 .order-detail-row { font-size:11px; color:var(--muted); margin-top:2px; }
 .order-status { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
-.os-pending  { background: rgba(210,160,80,.15); color: #8a6020; }
+
+.os-pending   { background: rgba(210,160,80,.15);  color: #8a6020; }
+.os-confirmed { background: rgba(46,80,96,.15);    color: #2E5060; }
+.os-shipped   { background: rgba(122,136,96,.15);  color: #4a5a28; }
+.os-delivered { background: rgba(60,160,80,.15);   color: #1a6030; }
+.os-cancelled { background: rgba(180,60,60,.15);   color: #8a2020; }
+.status-select {
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  border: none; border-radius: 20px; padding: 4px 10px; cursor: pointer;
+  font-family: 'Nunito', sans-serif; appearance: none; -webkit-appearance: none;
+}
+
 .os-reserved { background: rgba(46,80,96,.12); color: var(--teal); }
 .os-complete { background: rgba(122,136,96,.15); color: var(--olive); }
 
@@ -987,10 +998,12 @@ nav {
       <!-- ORDERS TAB -->
       <div class="admin-tab-content" id="tab-orders">
         <div class="inv-title">All Orders</div>
-        <table class="inv-table">
+        <div style="overflow-x:auto;width:100%;">
+        <table class="inv-table" style="min-width:900px;">
           <thead><tr><th>Order #</th><th>Customer Info</th><th>Items</th><th>Total</th><th>Payment</th><th>Delivery</th><th>Notes</th><th>Tracking #</th><th>Status</th></tr></thead>
           <tbody id="ordersBody"></tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
@@ -1156,7 +1169,7 @@ function clearFilters() {
 
 // ===================== GRID =====================
 function renderGrid() {
-  let list = [...products];
+  let list = [...products].filter(p => p.stock > 0); // Hide sold-out from shop
   if (activeCat !== "All") list = list.filter(p => p.cat === activeCat);
   const conds = [...document.querySelectorAll(".cond-cb:checked")].map(c => c.value);
   if (conds.length) list = list.filter(p => conds.includes(p.cond));
@@ -1522,7 +1535,7 @@ function renderDashboard() {
   const tbl = document.getElementById("recentOrdersTbl");
   if (!orders.length) { tbl.innerHTML = `<tr><td colspan="5" style="padding:1.5rem;text-align:center;color:var(--muted);font-style:italic;">No orders yet.</td></tr>`; return; }
   tbl.innerHTML = `<thead><tr><th>Order #</th><th>Customer</th><th>Total</th><th>Date</th><th>Status</th></tr></thead><tbody>` +
-    orders.slice(-5).reverse().map(o => `<tr><td>${o.id}</td><td>${o.customer}</td><td style="color:var(--terracotta);font-weight:700">$${o.total.toFixed(2)}</td><td>${o.date}</td><td><span class="order-status os-pending">${o.status}</span></td></tr>`).join('') + `</tbody>`;
+    orders.slice(-5).reverse().map(o => `<tr><td>${o.id}</td><td>${o.customer}</td><td style="color:var(--terracotta);font-weight:700">$${o.total.toFixed(2)}</td><td>${o.date}</td><td><span class="order-status ${statusClass(o.status)}">${o.status}</span></td></tr>`).join('') + `</tbody>`;
 }
 
 function renderInvTable() {
@@ -1635,6 +1648,18 @@ function resetAddForm() {
   clearImage();
 }
 
+function statusClass(s) {
+  const map = { Pending:'os-pending', Confirmed:'os-confirmed', Shipped:'os-shipped', Delivered:'os-delivered', Cancelled:'os-cancelled' };
+  return map[s] || 'os-pending';
+}
+function saveStatus(idx, el) {
+  const newStatus = el.value;
+  orders[idx].status = newStatus;
+  // Update select color class
+  el.className = 'status-select ' + statusClass(newStatus);
+  window.fbSaveOrder && window.fbSaveOrder(orders[idx]);
+  toast(`Order status updated to ${newStatus} ✓`);
+}
 function renderOrdersTable() {
   const body = document.getElementById("ordersBody");
   if (!orders.length) { body.innerHTML = `<tr><td colspan="9" style="padding:2rem;text-align:center;color:var(--muted);font-style:italic;">No orders yet.</td></tr>`; return; }
@@ -1658,7 +1683,15 @@ function renderOrdersTable() {
       </div>
       ${o.tracking ? `<div class="tracking-saved">✓ ${o.tracking}</div>` : ''}
     </td>
-    <td><span class="order-status os-pending">${o.status}</span></td>
+    <td>
+      <select class="status-select ${statusClass(o.status)}" onchange="saveStatus(${i}, this)">
+        <option value="Pending"   ${o.status==='Pending'   ?'selected':''}>Pending</option>
+        <option value="Confirmed" ${o.status==='Confirmed' ?'selected':''}>Confirmed</option>
+        <option value="Shipped"   ${o.status==='Shipped'   ?'selected':''}>Shipped</option>
+        <option value="Delivered" ${o.status==='Delivered' ?'selected':''}>Delivered</option>
+        <option value="Cancelled" ${o.status==='Cancelled' ?'selected':''}>Cancelled</option>
+      </select>
+    </td>
   </tr>`).join('');
 }
 function saveTracking(idx) {
