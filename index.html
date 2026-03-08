@@ -589,6 +589,9 @@ nav {
   transition: color .2s;
 }
 .footer-instagram:hover { color: #E8C060; }
+
+.badge-mail   { background: #2E5060; color: white; }
+.badge-pickup { background: #7A8860; color: white; }
 </style>
 
   <!-- Firebase -->
@@ -959,6 +962,9 @@ nav {
           <div class="fld"><label>Condition</label>
             <select id="aCond"><option>Like New</option><option>Excellent</option><option>Good</option></select>
           </div>
+          <div class="fld"><label>Delivery Options</label>
+            <select id="aDelivery"><option value="both">Both Pickup &amp; USPS</option><option value="mail">USPS Mail Only</option><option value="pickup">Local Pickup Only</option></select>
+          </div>
           <div class="fld full"><label>Description / Details</label><input type="text" id="aDetails" placeholder="e.g. Size M · Sage Green · Linen blend · worn twice" /></div>
           <div class="fld full">
             <label>Item Photo</label>
@@ -1170,10 +1176,12 @@ function renderGrid() {
   }
   document.getElementById("grid").innerHTML = list.map(p => {
     const out = p.stock === 0, low = p.stock > 0 && p.stock <= 2;
+    const delivBadge = p.delivery === 'mail' ? '<span class="badge badge-mail">USPS Only</span>' : p.delivery === 'pickup' ? '<span class="badge badge-pickup">Pickup Only</span>' : '';
     const badges = [
       p.isNew && !out ? `<span class="badge badge-new">Just In</span>` : '',
       low ? `<span class="badge badge-low">Only ${p.stock} left</span>` : '',
       out ? `<span class="badge badge-sold">Sold Out</span>` : '',
+      delivBadge,
     ].filter(Boolean).join('');
     const stockCls = out ? 'stock-out' : low ? 'stock-low' : 'stock-ok';
     const stockTxt = out ? 'Sold Out' : low ? `${p.stock} left` : `${p.stock} in stock`;
@@ -1280,12 +1288,42 @@ function openPayment() {
   // Reset payment method
   document.querySelectorAll(".pay-method-opt").forEach(x => x.classList.remove("selected"));
   document.getElementById("payMethod").value = "";
+  checkDeliveryRestrictions();
   document.getElementById("successScreen").classList.remove("show");
   document.getElementById("payForm").style.display = "";
   document.getElementById("payModal").classList.add("open");
 }
 function closePayment() { document.getElementById("payModal").classList.remove("open"); }
 const SHIPPING_COST = 8.00;
+
+function checkDeliveryRestrictions() {
+  // Check if any cart item restricts delivery
+  let mailOnly = false, pickupOnly = false;
+  cart.forEach(x => {
+    const p = products.find(r => r.id === x.id);
+    if (p && p.delivery === 'mail') mailOnly = true;
+    if (p && p.delivery === 'pickup') pickupOnly = true;
+  });
+  const pickupBtn = document.getElementById("delivOptPickup");
+  const mailBtn   = document.getElementById("delivOptMail");
+  if (mailOnly) {
+    pickupBtn.style.opacity = "0.35"; pickupBtn.style.pointerEvents = "none";
+    pickupBtn.title = "One or more items in your bag are USPS Mail only";
+  } else {
+    pickupBtn.style.opacity = ""; pickupBtn.style.pointerEvents = "";
+    pickupBtn.title = "";
+  }
+  if (pickupOnly) {
+    mailBtn.style.opacity = "0.35"; mailBtn.style.pointerEvents = "none";
+    mailBtn.title = "One or more items in your bag are Local Pickup only";
+  } else {
+    mailBtn.style.opacity = ""; mailBtn.style.pointerEvents = "";
+    mailBtn.title = "";
+  }
+  // Auto-select if forced
+  if (mailOnly && !pickupOnly) selectDelivery('mail');
+  if (pickupOnly && !mailOnly) selectDelivery('pickup');
+}
 
 function selectDelivery(method) {
   document.getElementById("delivOptPickup").classList.remove("selected");
@@ -1529,6 +1567,7 @@ function editItem(id) {
   document.getElementById("aStock").value = p.stock;
   document.getElementById("aSize").value = p.size;
   document.getElementById("aCond").value = p.cond;
+  document.getElementById("aDelivery").value = p.delivery || "both";
   document.getElementById("aDetails").value = p.details;
   // Load existing image into preview
   clearImage();
@@ -1552,6 +1591,7 @@ function saveItem() {
     size: document.getElementById("aSize").value,
     cond: document.getElementById("aCond").value,
     details: document.getElementById("aDetails").value.trim() || "—",
+    delivery: document.getElementById("aDelivery").value || "both",
     image: pendingImageData || null,
     bg: "#EEE8E0", isNew: true
   };
@@ -1584,6 +1624,7 @@ function resetAddForm() {
   document.getElementById("aCat").value = "Tops";
   document.getElementById("aSize").value = "M";
   document.getElementById("aCond").value = "Like New";
+  document.getElementById("aDelivery").value = "both";
   clearImage();
 }
 
